@@ -20,8 +20,12 @@ START:
     int 21h
 
     ; 调用ctod将字符串转换为有符号整数
-    mov bx, offset buffer
-    push bx
+    lea si, buffer
+    mov cl, [si + 1]     ; 获取实际输入的字符数
+    xor ch, ch           ; CX = 长度
+    add si, 2            ; SI 指向实际字符串
+    push cx              ; 压入长度
+    push si              ; 压入字符串指针
     call ctod
 
     ; 调用dtoc将整数转换回字符串
@@ -97,20 +101,18 @@ pop_digits:
 dtoc endp
 
 ; 将字符串转换为有符号整数函数
-; 输入: str_ptr 指向 DOS 输入缓冲区（buffer），第一个字节是缓冲区最大长度，
-; 第二个字节是实际输入的字符数，实际的字符串从 buffer+2 开始
+; 输入: str_ptr 指向字符串的指针
+;       str_len 字符串的长度
 ; 输出: ax 中存放转换后的有符号整数（16 位）
-ctod proc STDCALL str_ptr:WORD
+ctod proc STDCALL str_ptr:WORD, str_len:WORD
     push bx
     push cx
     push dx
     push si
     push di
-    mov si, str_ptr      ; SI -> buffer
+    mov si, str_ptr      ; SI -> 字符串开始
+    mov cx, str_len      ; CX = 字符串长度
     xor ax, ax           ; AX = 0, accumulator
-    mov cl, [si + 1]     ; CL = actual length
-    xor ch, ch
-    add si, 2            ; SI -> first character of input
     jcxz end_convert     ; zero length -> return 0
 
     xor di, di           ; DI will be sign flag: 0 = positive, 1 = negative

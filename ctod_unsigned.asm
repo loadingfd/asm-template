@@ -17,7 +17,10 @@ START:
     mov dx, offset buffer
     int 21h
 
-    lea ax, buffer
+    xor ax, ax
+    mov al, buffer[1]
+    push ax
+    lea ax, buffer[2]
     push ax
     
     call ctod
@@ -28,15 +31,13 @@ START:
 ; 将字符串转换为无符号整数函数
 ; 输入: str_ptr 指向字符串缓冲区
 ; 输出: ax 中存放转换后的无符号整数
-ctod proc STDCALL str_ptr:WORD
+ctod proc STDCALL str_ptr:WORD, len:WORD
     push bx
     push cx
     push dx
     mov si, str_ptr
+    mov cx, len
     xor ax, ax
-    mov cl, [si + 1]
-    xor ch, ch
-    add si, 2
     jcxz end_convert
 convert_loop:
     mov bl, [si]

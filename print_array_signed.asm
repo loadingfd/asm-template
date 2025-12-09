@@ -1,9 +1,8 @@
 .model small
+
 DATA segment
-    buffer db 100
-        db ?
-        db 100 dup(0)
-    res_str db 100 dup(0)  ; 用于存储转换后的字符串
+    buffer db 100 dup(0)  ; 用于存储转换后的字符串
+    array dw -123, 456, -789, 0, 321, -654  ; 示例有符号整数数组
 DATA ends
 
 .stack 400h
@@ -14,69 +13,28 @@ START:
     mov ax, DATA
     mov ds, ax
 
-    ; 读取字符串输入
-    mov ah, 0Ah
-    mov dx, offset buffer
-    int 21h
+    mov cx, 5
+    mov bx, 0
+    .REPEAT
+        mov ax, array[bx]
+        add bx, 2
 
-    ; 调用ctod将字符串转换为无符号整数
-    xor ax, ax
-    mov al, buffer[1]
-    push ax
-    lea ax, buffer[2]
-    push ax
-    call ctod
+        lea si, buffer
+        call dtoc
+        mov ax, offset buffer
+        push ax
+        call show_str
 
-    ; 调用dtoc将整数转换回字符串
-    ; ax -> si
-    lea si, res_str
-    call dtoc  
-    ; 换行
-    mov dl, 0Ah
-    mov ah, 02h
-    int 21h
+        ; 输出换行
+        mov dl, 0Ah
+        mov ah, 02h
+        int 21h
+    .UNTILCXZ
 
-    ; 输出
-    lea si, res_str
-    push si
-    int 3
-    call show_str
+    mov ax, 4C00H
+    int 21H
 
-    mov ah, 4Ch
-    int 21h
-
-; 将字符串转换为无符号整数函数
-; 输入: str_ptr 指向字符串缓冲区
-; 输出: ax 中存放转换后的无符号整数
-ctod proc STDCALL str_ptr:WORD, len:WORD
-    push bx
-    push cx
-    push dx
-    mov si, str_ptr
-    mov cx, len
-    xor ax, ax
-    jcxz end_convert
-convert_loop:
-    mov bl, [si]
-    cmp bl, '0'
-    jb end_convert
-    cmp bl, '9'
-    ja end_convert
-    sub bl, '0'
-    mov bh, 0
-    mov cx, ax
-    mov ax, 10
-    mul cx
-    add ax, bx
-    inc si
-    jmp convert_loop
-end_convert:
-    pop dx
-    pop cx
-    pop bx
-    ret
-ctod endp
-
+    
 ; 名称:dtoc
 ; 功能:将 word型数据转变为表示十进制数的字符串,字符串以0为结尾符。
 ; 参数:(ax)=word 型数据
@@ -86,6 +44,19 @@ dtoc proc
     push bx
     push cx
     push dx
+    push bp
+    
+    ; 记录符号并对负数取绝对值，兼容-32768
+    cwd                     ; 符号扩展到dx
+    mov bp, dx              ; 保存符号
+    cmp bp, 0
+    jge dtoc_positive
+    mov byte ptr [si], '-'
+    inc si
+    neg ax                  ; 对dx:ax取绝对值
+    adc dx, 0
+    neg dx
+dtoc_positive:
 
     mov bx, 10
     xor cx, cx          ; cx用来计数位数
@@ -108,8 +79,9 @@ pop_digits:
     inc si
     loop pop_digits     ; 循环处理下一位
 
-    mov byte ptr [si], 0 ; 字符串结尾符0
+    mov byte ptr [si], 0   ; 仍保留0作为逻辑结束符
 
+    pop bp
     pop dx
     pop cx
     pop bx
@@ -141,4 +113,4 @@ replace_end:
 show_str endp
 
 CODE ends
-end START
+END START
