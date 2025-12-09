@@ -41,14 +41,14 @@ ctod proc STDCALL str_ptr:WORD, str_len:WORD
     push di
     mov si, str_ptr      ; SI -> 字符串开始
     mov cx, str_len      ; CX = 字符串长度
-    xor ax, ax           ; AX = 0, accumulator
+    xor dx, dx           ; DX = accumulator
     jcxz end_convert     ; zero length -> return 0
 
     xor di, di           ; DI will be sign flag: 0 = positive, 1 = negative
-    mov al, [si]
-    cmp al, '-'
+    mov bl, [si]
+    cmp bl, '-'
     je handle_negative
-    cmp al, '+'
+    cmp bl, '+'
     je skip_sign
     jmp convert_loop
     
@@ -73,22 +73,19 @@ convert_loop:
     ja end_convert
     sub bl, '0'
 
-    xor bh, bh
-    push dx
-    mov dx, 2
-    imul dx              ; ax = ax * 2 (signed multiply)
-    pop dx
-    add ax, bx
-    
+    shl dx, 1            ; accumulator *= 2
+    add dl, bl           ; add current bit
+
     inc si
     loop convert_loop
 
 end_convert:
+    mov ax, dx
     cmp di, 0
-    jz done_convert
+    jz finalize
     neg ax
 
-done_convert:
+finalize:
     pop di
     pop si
     pop dx

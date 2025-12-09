@@ -39,12 +39,12 @@ ctod proc STDCALL str_ptr:WORD, str_len:WORD
     push dx
     push si
     push di
-    mov si, str_ptr      ; SI -> 字符串开始
-    mov cx, str_len      ; CX = 字符串长度
-    xor ax, ax           ; AX = 0, accumulator
-    jcxz end_convert     ; zero length -> return 0
+    mov si, str_ptr
+    mov cx, str_len
+    xor bx, bx           ; accumulator in BX
+    jcxz end_convert
 
-    xor di, di           ; DI will be sign flag: 0 = positive, 1 = negative
+    xor di, di           ; sign flag: 0 = positive, 1 = negative
     mov al, [si]
     cmp al, '-'
     je handle_negative
@@ -65,50 +65,52 @@ skip_sign:
     jz end_convert
     
 convert_loop:
-    jcxz end_convert     ; if no more characters, done
-    mov bl, [si]
-    cmp bl, '0'
+    jcxz end_convert
+    mov dl, [si]
+    cmp dl, '0'
     jb end_convert
-    cmp bl, '9'
+    cmp dl, '9'
     jbe digit_decimal
-    cmp bl, 'A'
+    cmp dl, 'A'
     jb check_lower
-    cmp bl, 'F'
+    cmp dl, 'F'
     jbe digit_upper
     jmp check_lower
 
 digit_upper:
-    sub bl, 'A'
-    add bl, 10
+    sub dl, 'A'
+    add dl, 10
     jmp accumulate
 
 check_lower:
-    cmp bl, 'a'
+    cmp dl, 'a'
     jb end_convert
-    cmp bl, 'f'
+    cmp dl, 'f'
     ja end_convert
-    sub bl, 'a'
-    add bl, 10
+    sub dl, 'a'
+    add dl, 10
     jmp accumulate
 
 digit_decimal:
-    sub bl, '0'
+    sub dl, '0'
 
 accumulate:
-    xor bh, bh
-    push dx
-    mov dx, 16
-    imul dx              ; ax = ax * 16 (signed multiply)
-    pop dx
-    add ax, bx
+    push cx
+    mov cl, 4
+    shl bx, cl           ; multiply accumulator by 16
+    pop cx
+    xor dh, dh
+    add bx, dx           ; add current digit
     
     inc si
     loop convert_loop
 
 end_convert:
     cmp di, 0
-    jz done_convert
-    neg ax
+    jz move_result
+    neg bx
+move_result:
+    mov ax, bx
 
 done_convert:
     pop di
