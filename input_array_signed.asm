@@ -1,9 +1,10 @@
 .model small
 DATA segment
-    buffer db 100
+    buffer db 100 ; 0000h
     db ?
     db 100 dup(0)
-    array_count dw 0
+    tmp db 100 dup(0) 
+    array_count dw 0 ; 初始化为0
     array dw 50 dup(?)
 DATA ends
 
@@ -15,37 +16,94 @@ START:
     mov ax, DATA
     mov ds, ax
 
-    mov ah, 0Ah
-    mov dx, offset buffer
-    int 21h
-
-    mov si, offset buffer
-    call parse_array
+    lea ax, tmp
+    push ax
+    mov ax, offset array_count
+    push ax
+    lea ax, array
+    push ax
+    call array_input
     
-    int 3                ; 调试断点：查看 array_count 和 array 内容
+    int 3
     mov ah, 4Ch
     int 21h
-    
-; 解析空格分隔的有符号整数到 array，数量写入 array_count
-parse_array proc
-    
 
 
-; 将字符串转换为有符号整数函数
-; 输入: str_ptr 指向 DOS 输入缓冲区（buffer），第一个字节是缓冲区最大长度，
-; 第二个字节是实际输入的字符数，实际的字符串从 buffer+2 开始
-; 输出: ax 中存放转换后的有符号整数（16 位）
-ctod proc STDCALL str_ptr:WORD
+; 输入用空格分隔的有符号整数，存储array数组
+; 输入: arr - 存储整数的数组
+;       cnt - 存储整数个数的变量地址
+;       buf - 存储输入字符串的缓冲区
+; 输出: cnt中存储的整数个数增加
+;       arr中存储输入的整数
+
+array_input proc STDCALL arr:WORD, cnt:WORD, buf:WORD
+    
+    ; 初始化
+    xor bx, bx ; 使用bx作为单个数字长度计数器
+
+    ; 读取第一个字符
+    mov ah, 01h
+    int 21h
+    mov dl, al
+    
+    .WHILE dl != 0Dh
+        ; 重置长度计数器
+        xor bx, bx
+        
+        ; 读取一个数
+        .WHILE (dl != ' ') && (dl != 0Dh)
+            mov si, buf
+            mov [si + bx], dl
+            inc bx
+
+            mov ah, 01h
+            int 21h
+            mov dl, al
+        .ENDW
+
+        ; 如果没有读取到任何字符，跳过存储
+        .IF bx != 0
+            ; 结束字符串
+            mov si, buf
+            mov byte ptr [si + bx], 0
+            
+            ; 转换字符串到整数
+            push bx               ; 压入长度
+            push si               ; 压入字符串指针
+            call ctod
+            
+            ; 存储结果到数组
+            mov di, arr
+            mov si, cnt
+            mov bx, si            ; bx = cnt 地址
+            mov si, [bx]          ; si = 当前数组索引
+            shl si, 1             ; si = si * 2 (每个元素2字节)
+            add di, si            ; di = 数组地址 + 偏移量
+            mov [di], ax          ; 存储转换结果
+            shr si, 1             ; 恢复 si
+            inc si
+            mov [bx], si          ; 增加计数
+        .ENDIF
+
+        ; 如果是空格，读取下一个字符继续
+        .BREAK .IF dl == 0Dh
+        mov ah, 01h
+        int 21h
+        mov dl, al
+    .ENDW
+
+    ret
+array_input endp
+
+ctod proc STDCALL str_ptr:WORD, str_len:WORD
     push bx
     push cx
     push dx
     push si
     push di
-    mov si, str_ptr      ; SI -> buffer
+    mov si, str_ptr      ; SI -> 字符串开始
+    mov cx, str_len      ; CX = 字符串长度
     xor ax, ax           ; AX = 0, accumulator
-    mov cl, [si + 1]     ; CL = actual length
-    xor ch, ch
-    add si, 2            ; SI -> first character of input
     jcxz end_convert     ; zero length -> return 0
 
     xor di, di           ; DI will be sign flag: 0 = positive, 1 = negative
@@ -104,6 +162,7 @@ done_convert:
     pop bx
     ret
 ctod endp
+
 
 CODE ends
 end START
