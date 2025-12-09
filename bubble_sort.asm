@@ -28,6 +28,9 @@ START:
 ;       cl - 数组元素个数
 ; 输出: 数组按升序排序
 bubble_sort proc STDCALL a:word, n:word 
+    .IF n == 1
+        ret 4
+    .ENDIF
     push ax
     push bx
     push cx
