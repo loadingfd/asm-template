@@ -73,6 +73,7 @@ convert_loop:
     ja end_convert
     sub al, '0'
     xor ah, ah           ; AX = digit
+    ;8086 的 SHL reg, imm 只能用立即数 1（否则报 A2070），要么写三次 SHL reg,1，要么先 mov cl,3 然后 shl reg,cl。
     shl bx, 1
     shl bx, 1
     shl bx, 1
